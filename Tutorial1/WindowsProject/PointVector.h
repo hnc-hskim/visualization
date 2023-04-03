@@ -79,6 +79,11 @@ public:
 		return m_points->at(index);
 	}
 
+	PointPressure back()
+	{
+		return m_points->back();
+	}
+
 private:
 	vector<PointPressure>* m_points;
 };
