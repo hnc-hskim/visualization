@@ -1,4 +1,6 @@
 #pragma once
+#ifndef POINT_VECTOR_H
+#define POINT_VECTOR_H 
 
 #include <gdiplus.h>
 #include <iostream>
@@ -88,3 +90,4 @@ private:
 	vector<PointPressure>* m_points;
 };
 
+#endif // !POINT_VECTOR_H
