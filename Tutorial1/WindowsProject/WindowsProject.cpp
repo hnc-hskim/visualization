@@ -100,12 +100,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	static BOOL isDrawing = false;
 	static BOOL isOldPathDrawing = false;
-	static Point lastPoint = Point(0, 0);
-	static Point currentPoint = Point(0, 0);
+	static PointF lastPoint = PointF(0, 0);
+	static PointF currentPoint = PointF(0, 0);
 	GraphicsPath path;
 
 	static float pen_pressure = 1.0F; 
 	static float default_pen_width = 20;
+	static float MinLength = 0;
 
 	static vector<PointVector*> PathList = vector<PointVector*>();
 	static PointVector* currentPoints = NULL;
@@ -119,14 +120,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		HDC hdc = BeginPaint(hWnd, &ps);  
 
 		// GDI+ Graphics 객체 생성
-		Graphics graphics(hdc);
-
-		
+		Graphics graphics(hdc); 
 
 		// 형광펜 효과를 위한 펜 생성 및 속성 설정
 		Pen pen(Color(255, 0, 0, 0), default_pen_width);
-		pen.SetStartCap(LineCapRound);
-		pen.SetEndCap(LineCapRound);
+		/*pen.SetStartCap(LineCapRound);
+		pen.SetEndCap(LineCapRound);*/
+		/*pen.SetStartCap(LineCapSquare);
+		pen.SetEndCap(LineCapSquare);*/
+
+		pen.SetLineCap(Gdiplus::LineCapSquare, Gdiplus::LineCapSquare, Gdiplus::DashCapFlat);
+		pen.SetLineJoin(Gdiplus::LineJoinRound);
 
 		// 마우스 이동 경로를 그리기
 		if (isDrawing)
@@ -139,10 +143,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			// 경로를 그리기
 			graphics.SetSmoothingMode(SmoothingModeAntiAlias); 
 			{ 
-				for (vector<PointVector*>::iterator it = PathList.begin(); it != PathList.end(); it++)
+				/*for (vector<PointVector*>::iterator it = PathList.begin(); it != PathList.end(); it++)
 				{
 					(*it)->DrawPath(graphics, pen);
-				}   
+				} */  
+
+				//currentPoints->DrawPath(graphics, pen);
+				currentPoints->DrawSmoothLines(graphics, pen);
 			} 
 		} 
 
@@ -154,8 +161,45 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// 마우스 이동 시 경로 업데이트
 		if (isDrawing)
 		{ 
-			currentPoint = Point(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)); 
-			currentPoints->AddPoint(PointPressure(PointF(lastPoint.X, lastPoint.Y), PointF(currentPoint.X, currentPoint.Y), default_pen_width * pen_pressure));
+			currentPoint = PointF(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)); 
+
+			//currentPoints의 마지막 저장된 Point와 currentPoint의 거리가 MinLength보다 작다면, currentPoints의 
+			// 마지막 원소의 값을 currentPoint로 변경한다. 
+			if (currentPoints->GetPointCount() > 0 && currentPoints->GetLastPoint().GetDistance(currentPoint) < default_pen_width)
+			{ 
+				PointPressure last = currentPoints->GetLastPoint();
+				last.SetEndPoint(currentPoint);
+
+				currentPoints->SetLastPoint(last);
+				InvalidateRect(hWnd, NULL, FALSE);
+				break; 
+			}
+
+			float thickness = default_pen_width* pen_pressure;
+
+			if (currentPoints->GetPointCount() > 0)
+			{
+				float dist = currentPoints->GetLastPoint().GetDistance(currentPoint);
+				float angle = currentPoints->GetLastPoint().GetAngle(currentPoint);
+				float currentWidth = default_pen_width * pen_pressure;
+				//thickness = (float)(currentWidth / currentWidth + fabs(cos(angle) * default_pen_width));
+			}
+
+			// 두 점의 각도가 1도 이상이면 Bezier 타입으로 추가한다. 
+			/*if (currentPoints->GetPointCount() > 0 && currentPoints->GetLastPoint().GetAngle(currentPoint) > 1)
+			{
+				float dist = currentPoints->GetLastPoint().GetDistance(currentPoint);
+				float angle = currentPoints->GetLastPoint().GetAngle(currentPoint);
+				float currentWidth = default_pen_width* pen_pressure;
+
+				float thickness = (float)(currentWidth / currentWidth + fabs(cos(angle) * 2));
+
+				currentPoints->AddPoint(PointPressure(PointType::Bezier, lastPoint, currentPoint, thickness));
+			}
+			else*/
+			{
+				currentPoints->AddPoint(PointPressure(PointType::Line, lastPoint, currentPoint, thickness));
+			}
 
 			InvalidateRect(hWnd, NULL, FALSE);
 
@@ -165,7 +209,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_LBUTTONDOWN:
 		// 마우스 왼쪽 버튼 클릭 시 그리기 시작
 		isDrawing = true;
-		currentPoint = lastPoint = Point(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)); 
+		currentPoint = lastPoint = PointF(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)); 
 		currentPoints = new PointVector(); 
 		PathList.push_back(currentPoints);
 		break;
@@ -217,8 +261,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		case 3:
 			{
-				// 메뉴 항목 3 선택 시 처리할 코드
-				//myPoints.Clear();
+				// 메뉴 항목 3 선택 시 처리할 코드 
+
+				// PathList의 원소들을 모두 삭제한다.  
+				PathList.clear();
+
+				delete currentPoints;
+				currentPoints = new PointVector(); 
+
 				isOldPathDrawing = false;
 
 				PAINTSTRUCT ps;
