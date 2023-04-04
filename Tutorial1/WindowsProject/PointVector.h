@@ -13,19 +13,19 @@ using namespace Gdiplus;
 class PointPressure
 {
 public:
-	PointPressure(Point start, Point end, float pressure)
+	PointPressure(PointF start, PointF end, float pressure)
 	{
 		m_start = start;
 		m_End = end;
 		m_pressure = pressure;
 	} 
 
-	Point GetStartPoint()
+	PointF GetStartPoint()
 	{
 		return m_start;
 	}
 
-	Point GetEndPoint()
+	PointF GetEndPoint()
 	{
 		return m_End;
 	}
@@ -37,8 +37,8 @@ public:
 	 
 
 private:
-	Point m_start;
-	Point m_End; 
+	PointF m_start;
+	PointF m_End;
 	float m_pressure;
 };
 
@@ -84,6 +84,19 @@ public:
 	PointPressure back()
 	{
 		return m_points->back();
+	}
+
+	void DrawPath(Graphics& graphics, Pen& pen)
+	{
+		for (int i = 0; i < m_points->size(); i++)
+		{
+			
+			PointPressure point = m_points->at(i);
+
+			pen.SetWidth(point.GetPressure());
+
+			graphics.DrawLine(&pen, point.GetStartPoint(), point.GetEndPoint());
+		} 
 	}
 
 private:

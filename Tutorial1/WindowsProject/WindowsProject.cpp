@@ -4,11 +4,7 @@
 using namespace std; 
 
 using namespace Gdiplus;
-#pragma comment (lib,"Gdiplus.lib") 
-
-#define Test2 
-
-static PointVector myPoints = PointVector(); 
+#pragma comment (lib,"Gdiplus.lib")  
 
 // 마우스 우클릭 발생시 화면을 지우는 함수
 VOID OnErase(HWND hWnd, HDC hdc)
@@ -109,8 +105,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	GraphicsPath path;
 
 	static float pen_pressure = 1.0F; 
+	static float default_pen_width = 20;
 
-	static vector<PointF> Points = vector<PointF>();
+	static vector<PointVector*> PathList = vector<PointVector*>();
+	static PointVector* currentPoints = NULL;
 
 	switch (message)
 	{
@@ -118,17 +116,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		// 그리기 준비
 		PAINTSTRUCT ps;
-		HDC hdc = BeginPaint(hWnd, &ps); 
-
-		if (isOldPathDrawing)
-		{
-			DrawMyPath(hdc, myPoints);
-		}
+		HDC hdc = BeginPaint(hWnd, &ps);  
 
 		// GDI+ Graphics 객체 생성
 		Graphics graphics(hdc);
 
-		float default_pen_width = 20;
+		
 
 		// 형광펜 효과를 위한 펜 생성 및 속성 설정
 		Pen pen(Color(255, 0, 0, 0), default_pen_width);
@@ -137,84 +130,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		// 마우스 이동 경로를 그리기
 		if (isDrawing)
-		{
-			// 현재 마우스 위치를 경로에 추가
-			//path.AddLine(lastPoint, currentPoint); 
-			 
+		{ 
 			if (pen_pressure != 1.0F)
-			{
-				//pen.SetWidth(default_pen_width * pen_pressure);
+			{ 
 				default_pen_width = default_pen_width * pen_pressure;
 			}
 
 			// 경로를 그리기
-			graphics.SetSmoothingMode(SmoothingModeAntiAlias);
-
-#ifdef Test0 
-			DrawLine(&graphics, &pen, PointF(lastPoint.X, lastPoint.Y), PointF(currentPoint.X, currentPoint.Y), default_pen_width);
-#endif 
-
-#ifdef Test1
-			DrawLineEx(&graphics, &pen, PointF(lastPoint.X, lastPoint.Y), PointF(currentPoint.X, currentPoint.Y), default_pen_width); 
-#endif  
-
-#ifdef Test2
-			{
-				std::vector<PointF> points = SplitPointsByDistance(PointF(lastPoint.X, lastPoint.Y), PointF(currentPoint.X, currentPoint.Y), default_pen_width);
-				//if (points.size() > 2)
+			graphics.SetSmoothingMode(SmoothingModeAntiAlias); 
+			{ 
+				for (vector<PointVector*>::iterator it = PathList.begin(); it != PathList.end(); it++)
 				{
-					DrawPathWithVariableThickness(&graphics, points, points.size(), &pen, default_pen_width);
-				}
-				/*else
-				{
-					pen.SetWidth(default_pen_width);
-					path.AddLine(lastPoint, currentPoint);
-					graphics.DrawPath(&pen, &path);
-				}*/
+					(*it)->DrawPath(graphics, pen);
+				}   
 			} 
-#endif
-#ifdef Test3
-			{
-				Gdiplus::Graphics graphics(hWnd);
-
-				OnErase(hWnd, hdc);
-
-				if (Points.size() == 0)
-				{
-					Points.push_back(PointF(currentPoint.X, currentPoint.Y)); 
-					graphics.DrawLines(&pen, &Points[0], Points.size());
-
-					return 0;
-				}
-
-				if (isDrawing) 
-				{
-					PointF prevPoint = Points.back();
-					float distance = GetDistance(PointF(prevPoint.X, prevPoint.Y), PointF(currentPoint.X, currentPoint.Y));
-
-					if (distance >= MIN_DISTANCE) { 
-						float angle = GetAngle(PointF(prevPoint.X, prevPoint.Y), PointF(currentPoint.X, currentPoint.Y));
-						float thickness = GetThickness(distance, angle, 10);
-
-						Points.push_back(PointF(currentPoint.X, currentPoint.Y));
-						pen.SetWidth(thickness); 
-
-						graphics.DrawLines(&pen, &Points[0], Points.size());
-					}
-					else {
-						Points.pop_back();
-						Points.push_back(PointF(currentPoint.X, currentPoint.Y)); 
-
-						graphics.DrawLines(&pen, &Points[0], Points.size());
-
-					}
-				}
-			}
-#endif
-		}
-
-		// GraphicsPath의 Point를 저장하는 함수 호출
-		SavePoint(lastPoint, currentPoint, pen_pressure, myPoints);
+		} 
 
 		// 그리기 종료
 		EndPaint(hWnd, &ps);
@@ -223,22 +153,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_MOUSEMOVE:  
 		// 마우스 이동 시 경로 업데이트
 		if (isDrawing)
-		{
-			lastPoint = currentPoint;
-			currentPoint = Point(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+		{ 
+			currentPoint = Point(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)); 
+			currentPoints->AddPoint(PointPressure(PointF(lastPoint.X, lastPoint.Y), PointF(currentPoint.X, currentPoint.Y), default_pen_width * pen_pressure));
+
 			InvalidateRect(hWnd, NULL, FALSE);
+
+			lastPoint = currentPoint;
 		}
 		break;
 	case WM_LBUTTONDOWN:
 		// 마우스 왼쪽 버튼 클릭 시 그리기 시작
 		isDrawing = true;
-		currentPoint = lastPoint = Point(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-		path.Reset();
-		path.StartFigure();
+		currentPoint = lastPoint = Point(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)); 
+		currentPoints = new PointVector(); 
+		PathList.push_back(currentPoints);
 		break;
 	case WM_LBUTTONUP:
 		// 마우스 왼쪽 버튼 떼면 그리기 종료
-		isDrawing = false;
+		isDrawing = false; 
 		break; 
 	case WM_RBUTTONDOWN:
 	{
@@ -285,7 +218,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case 3:
 			{
 				// 메뉴 항목 3 선택 시 처리할 코드
-				myPoints.Clear();
+				//myPoints.Clear();
 				isOldPathDrawing = false;
 
 				PAINTSTRUCT ps;

@@ -159,6 +159,7 @@
     <ClInclude Include="WindowsProject.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="inkml.cpp" />
     <ClCompile Include="Util.cpp" />
     <ClCompile Include="Util.h" />
     <ClCompile Include="WindowsProject.cpp" />
@@ -169,6 +170,9 @@
   <ItemGroup>
     <Image Include="small.ico" />
     <Image Include="WindowsProject.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="wndProc.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
