@@ -147,6 +147,68 @@ public:
 		} 
 	}*/
 
+	void DrawPoints(HDC hdc) 
+	{
+		if (m_points->size() < 2) {
+			return;
+		}
+
+		MoveToEx(hdc, m_points->at(0).GetPoint().X, m_points->at(0).GetPoint().Y, NULL);
+		
+		for (int i = 1; i < m_points->size(); ++i) 
+		{
+			PointF prevPoint = m_points->at(i-1).GetPoint();
+			PointF curPoint = m_points->at(i).GetPoint();
+
+			float beforewidth = m_points->at(i-1).GetPressure();
+			float curwidth = m_points->at(i).GetPressure();
+
+			//HPEN hPen = CreatePen(PS_SOLID, 20, RGB(255, 0, 0));
+			//HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+
+
+			CustomLineCap* pCap = CreateRectCap();
+			pCap->SetStrokeCaps(LineCapNoAnchor, LineCapNoAnchor);
+
+			Pen pen(Color(255, 0, 0), 20);
+			pen.SetStartCap(LineCapSquare); // 시작 부분 모양 설정
+			pen.SetEndCap(LineCapSquare); // 끝 부분 모양 설정			
+			pen.SetCustomEndCap(pCap);
+
+			HPEN hOldPen = (HPEN)SelectObject(hdc, &pen);
+
+			double dx = curPoint.X - prevPoint.X;
+			double dy = curPoint.Y - prevPoint.Y;
+			double distance = sqrt(dx * dx + dy * dy); 
+
+			MoveToEx(hdc, prevPoint.X, prevPoint.Y, NULL);
+			LineTo(hdc, curPoint.X, curPoint.Y);
+
+			SelectObject(hdc, hOldPen);
+			//DeleteObject(hPen);
+		}
+	}
+
+	void DrawPoints(Graphics& graphics, Pen& pen)
+	{
+		if (m_points->size() < 2) {
+			return;
+		} 
+
+		MoveToEx(graphics.GetHDC(), m_points->at(0).GetPoint().X, m_points->at(0).GetPoint().Y, NULL);
+		for (int i = 1; i < m_points->size(); ++i)
+		{
+			PointF prevPoint = m_points->at(i - 1).GetPoint();
+			PointF curPoint = m_points->at(i).GetPoint(); 
+
+			pen.SetWidth(m_points->at(i).GetPressure());
+
+			MoveToEx(graphics.GetHDC(), prevPoint.X, prevPoint.Y, NULL);
+			LineTo(graphics.GetHDC(), curPoint.X, curPoint.Y);
+		} 
+	}
+
+
 	void DrawPath(Graphics& graphics, Pen& pen)
 	{
 		if (m_points->size() < 2)
@@ -160,10 +222,79 @@ public:
 			PointF p1 = pp1.GetPoint();
 			PointF p2 = pp2.GetPoint();
 
-			pen.SetWidth(pp2.GetPressure()); 
+			//pen.SetWidth(pp2.GetPressure()); 
 
 			graphics.DrawLine(&pen, p1, p2);
 		}
+	}
+
+	void CreateRectanglePath(PointF ptRect[4], GraphicsPath* pPath)
+	{
+		pPath->Reset();
+		pPath->AddLine(ptRect[0], ptRect[1]);
+		pPath->AddLine(ptRect[1], ptRect[2]);
+		pPath->AddLine(ptRect[2], ptRect[3]);
+		pPath->AddLine(ptRect[3], ptRect[0]);
+	}
+
+	CustomLineCap* CreateRectCap()
+	{
+		const int capSize = 1;
+		PointF capPoints[4];
+		capPoints[0] = PointF(-capSize / 2, capSize / 2);
+		capPoints[1] = PointF(capSize / 2, capSize / 2);
+		capPoints[2] = PointF(capSize / 2, -capSize / 2);
+		capPoints[3] = PointF(-capSize / 2, -capSize / 2);
+		GraphicsPath capPath;
+		CreateRectanglePath(capPoints, &capPath);
+
+		PointF origin(-capSize / 2, 0); // 회전중심
+		Matrix matrix;
+		matrix.RotateAt(0, origin);
+		capPath.Transform(&matrix); // Path를 회전
+
+		CustomLineCap* pCap = new CustomLineCap(&capPath, NULL, LineCapNoAnchor, 0);
+		//pCap->SetStrokeJoin(LineJoinRound);
+		pCap->SetStrokeCap(LineCapFlat);
+		pCap->SetBaseInset(0);
+		return pCap;
+	}
+
+	void DrawTexturePath(Graphics& graphics, Pen& pen)
+	{
+		if (m_points->size() < 2)
+			return;
+
+		
+
+		std::vector<PointF> points;
+		for (int i = 0; i < m_points->size(); ++i)
+		{
+			PointPressure p = m_points->at(i);
+			points.push_back(p.GetPoint());
+		}
+
+		GraphicsPath path;
+		path.AddLines(points.data(), points.size());
+
+
+		graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+		graphics.DrawPath(&pen, &path);
+
+		// Create a GraphicsPath object and add an ellipse.
+		/*GraphicsPath path;
+		path.AddRectangle(RectF(0.F, 0.F, 10.F, 20.F));*/
+
+		//Bitmap bitmap(10, 20);
+		//Graphics bitmapGraphics(&bitmap);
+		//Pen myPen(Color(255, 0, 0), 2);
+		//bitmapGraphics.DrawLine(&myPen, 0, 0, 10, 20);
+
+		//// 사용자 정의 모양을 갖는 custom brush 생성 
+		//TextureBrush textureBrush(&bitmap);
+
+		//// Fill the path with the brush.
+		//graphics.FillPath(&textureBrush, &path);
 	}
 
 	void DrawSmoothLines(Graphics& graphics, Pen& pen)
@@ -178,6 +309,8 @@ public:
 		PointPressure point = m_points->at(0);
 		path.AddLine(point.GetPoint(), point.GetPoint());
 
+		graphics.SetPageUnit(UnitPixel);
+
 		// 두 번째 점부터 부드러운 라인 그리기
 		for (int i = 1; i < m_points->size(); ++i)
 		{
@@ -187,7 +320,27 @@ public:
 			PointF p1 = pp1.GetPoint();
 			PointF p2 = pp2.GetPoint();
 
-			DrawBezier(&graphics, &pen, p1, p2);
+
+			// 사용자 정의 모양을 갖는 bitmap 생성
+			Bitmap bitmap(10, 20);
+			Graphics bitmapGraphics(&bitmap);
+			Pen pen(Color(255, 0, 0), 2);
+			bitmapGraphics.DrawLine(&pen, 0, 0, 10, 20);
+
+			// 사용자 정의 모양을 갖는 custom brush 생성
+			SolidBrush solidBrush(Color(255, 0, 0));
+			TextureBrush textureBrush(&bitmap);
+			//textureBrush.SetWrapMode(WrapModeTileFlipXY);
+
+			//Matrix m(1, 0, 0, 1, 0, 0);
+			//textureBrush.SetTransform(&m); // 매트릭스를 통해 사용자 정의 모양의 위치 및 크기를 조정할 수 있음
+
+			// custom brush로 사각형 그리기
+			graphics.FillRectangle(&solidBrush, p1.X, p1.Y, 10.F, 20.F);
+
+
+			//graphics.DrawLine(&mypen, p1, p2);			
+			//DrawBezier(&graphics, &mypen, p1, p2);
 
 			//// 중간점 구하기
 			//PointF midPoint = GetMidPoint(p1, p2);

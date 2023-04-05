@@ -242,7 +242,7 @@ void DrawMyPath(HDC hdc, PointVector& myPoints)
 		pen.SetStartCap(LineCapRound);
 		pen.SetEndCap(LineCapRound);
 
-		path.AddLine(pt.GetStartPoint(), pt.GetEndPoint());
+		path.AddLine(pt.GetPoint(), pt.GetPoint());
 
 		if (pt.GetPressure() != 1.0F)
 		{

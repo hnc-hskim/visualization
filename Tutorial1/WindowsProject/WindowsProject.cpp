@@ -43,6 +43,18 @@ UINT32 GetPenPressure(LPARAM wParam)
 	return 0;
 }  
 
+void CreateRectangularLineCap(GraphicsPath& path, float width, float height)
+{
+	// Create a rectangular path
+	path.Reset();
+	path.AddRectangle(RectF(-width / 2, -height / 2, width, height));
+
+	// Move the path to the center
+	Matrix matrix;
+	matrix.Translate(width / 2, height / 2);
+	path.Transform(&matrix);
+}
+
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
 INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
@@ -121,20 +133,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		// GDI+ Graphics 객체 생성
 		Graphics graphics(hdc); 
+		graphics.SetPageUnit(UnitPixel);
 
 		// 형광펜 효과를 위한 펜 생성 및 속성 설정
 		Pen pen(Color(255, 0, 0, 0), default_pen_width);
-		/*pen.SetStartCap(LineCapRound);
-		pen.SetEndCap(LineCapRound);*/
-		/*pen.SetStartCap(LineCapSquare);
-		pen.SetEndCap(LineCapSquare);*/
-
-		pen.SetLineCap(Gdiplus::LineCapSquare, Gdiplus::LineCapSquare, Gdiplus::DashCapFlat);
-		//pen.SetLineCap(Gdiplus::LineCapRound, Gdiplus::LineCapRound, Gdiplus::DashCapFlat);
-		pen.SetLineJoin(Gdiplus::LineJoinRound);
-
-		graphics.SetSmoothingMode(SmoothingModeAntiAlias);
-
+		
 		if (isOldPathDrawing)
 		{
 			for (vector<PointVector*>::iterator it = PathList.begin(); it != PathList.end(); it++)
@@ -164,8 +167,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				currentPoints->MakeSimple();
 
+				//currentPoints->DrawPoints(hdc);
+				//currentPoints->DrawPoints(graphics, pen);
 				//currentPoints->DrawPath(graphics, pen);
-				currentPoints->DrawSmoothLines(graphics, pen);
+				//currentPoints->DrawSmoothLines(graphics, pen);
+
+				currentPoints->DrawTexturePath(graphics, pen);
 			} 
 		} 
 
