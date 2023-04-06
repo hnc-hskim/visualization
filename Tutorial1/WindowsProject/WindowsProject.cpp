@@ -142,7 +142,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			for (vector<PointVector*>::iterator it = PathList.begin(); it != PathList.end(); it++)
 			{
-				(*it)->DrawPath(graphics, pen);
+				//(*it)->DrawSmoothLines(graphics, pen);
+				//(*it)->DrawSmoothPath(graphics, pen);
 			}
 			isOldPathDrawing = false;
 		}
@@ -154,26 +155,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{ 
 				default_pen_width = default_pen_width * pen_pressure;
 			} 
-			// 경로를 그리기 
-			{
-				/*for (vector<PointVector*>::iterator it = PathList.begin(); it != PathList.end(); it++)
-				{
-					(*it)->DrawPath(graphics, pen);
-				} */
 
-				//currentPoints->DrawPath(graphics, pen);
-
-				//OnErase(hWnd, hdc);
-
-				currentPoints->MakeSimple();
-
-				//currentPoints->DrawPoints(hdc);
-				//currentPoints->DrawPoints(graphics, pen);
-				//currentPoints->DrawPath(graphics, pen);
-				//currentPoints->DrawSmoothLines(graphics, pen);
-
-				currentPoints->DrawTexturePath(graphics, pen);
-			} 
+			//currentPoints->DrawSmoothLines(graphics, pen);  
+//			currentPoints->DrawSmoothPath(hdc, pen); 
+			currentPoints->DrawSmoothPathEx(hWnd);
 		} 
 
 		// 그리기 종료
