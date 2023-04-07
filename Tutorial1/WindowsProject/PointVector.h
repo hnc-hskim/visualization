@@ -4,7 +4,7 @@
 
 #include <gdiplus.h>
 #include <iostream>
-#include <vector> 
+#include <vector>  
 
 using namespace std;
 using namespace Gdiplus;
@@ -13,6 +13,17 @@ enum PointType
 {
 	Line = 0,
 	Bezier = 1,
+};
+
+class GraphicsPathCustomEndCap : public CustomLineCap
+{
+public:
+	GraphicsPathCustomEndCap(
+		const GraphicsPath* path,
+		const Pen* pen,
+		LineCap baseCap = LineCapFlat
+	);
+	virtual ~GraphicsPathCustomEndCap();
 };
 
 // 포인트와 압력값을 저장하는 클래스
@@ -161,6 +172,83 @@ public:
 		//pCap->SetBaseInset(0);
 		return pCap;
 	}  
+
+	void DrawCustomLine(Graphics* graphics, Pen* pen, PointF start, PointF end)
+	{
+		// Calculate the angle between the start and end points.
+		float angle = atan2(end.Y - start.Y, end.X - start.X);
+
+		// Calculate the radius of the custom end cap.
+		float capRadius = pen->GetWidth() * 2;
+
+		// Create a GraphicsPath object to hold the custom end cap.
+		GraphicsPath capPath;
+		capPath.AddEllipse(-capRadius, -capRadius, capRadius * 2, capRadius * 2);
+
+		// Create a Matrix object to transform the cap path to the correct position and angle.
+		Matrix capMatrix;
+		capMatrix.RotateAt((REAL)(-angle * 180.0 / M_PI), end);
+		capMatrix.Translate((REAL)end.X, (REAL)end.Y);
+
+		// Transform the cap path using the matrix.
+		capPath.Transform(&capMatrix);
+
+		// Set the pen's custom end cap.
+		//GraphicsPathCustomEndCap customLineCap = GraphicsPathCustomEndCap(&capPath, nullptr);
+
+		CustomLineCap* customLineCap = new CustomLineCap(&capPath, &capPath);
+		//pen->SetCustomEndCap((const CustomLineCap*)customLineCap);
+		//pen->SetCustomStartCap((const CustomLineCap*)customLineCap);
+
+		Pen mypen(Color::Red, 50);
+		mypen.SetLineCap(LineCapFlat, LineCapFlat, DashCapFlat);
+
+		// Draw the line.
+		//graphics->SetTransform(&capMatrix);
+		//graphics->RotateTransform(-angle);  // 회전 변환 취소
+		graphics->DrawLine(&mypen, start, end);
+
+		// Reset the pen's custom end cap.
+		pen->SetCustomStartCap(nullptr);
+		pen->SetCustomEndCap(nullptr);
+	}
+
+	void DrawCustomLine(Graphics& graphics, Pen& pen)
+	{ 
+		// Add the remaining points to the path, with smoothing.
+		for (size_t i = 0; i < m_points->size() - 1; i++)
+		{
+			DrawCustomLine(&graphics, &pen, m_points->at(i).GetPoint(), m_points->at(i + 1).GetPoint());
+		} 
+	}
+
+	void DrawSmoothLine(Graphics& graphics, Pen& pen)
+	{
+		// Create a GraphicsPath object to hold the smoothed path.
+		GraphicsPath path;
+		//path.SetLineJoin(LineJoinRound); // Set the line join to round to create a smoother curve.
+
+		// Add the first point to the path.
+		path.StartFigure();
+		path.AddLine(m_points->at(0).GetPoint().X, m_points->at(0).GetPoint().Y, m_points->at(0).GetPoint().X, m_points->at(0).GetPoint().Y);
+
+		// Add the remaining points to the path, with smoothing.
+		for (size_t i = 1; i < m_points->size(); i++)
+		{
+			// Calculate the mid-point between the current point and the previous point.
+			PointF midPoint((m_points->at(i).GetPoint().X + m_points->at(i - 1).GetPoint().X) / 2, (m_points->at(i).GetPoint().Y + m_points->at(i - 1).GetPoint().Y) / 2);
+
+			// Add a curve segment between the mid-point and the current point.
+			path.AddBezier(m_points->at(i - 1).GetPoint().X, m_points->at(i - 1).GetPoint().Y, midPoint.X, midPoint.Y, midPoint.X, midPoint.Y, m_points->at(i).GetPoint().X, m_points->at(i).GetPoint().Y);
+		}
+
+		// Create a pen object to draw the path.
+		//Pen pen(color, (REAL)penWidth);
+		pen.SetLineJoin(LineJoinRound);
+
+		// Draw the path.
+		graphics.DrawPath(&pen, &path);
+	}
 
 	void DrawSmoothLines(Graphics& graphics, Pen& pen)
 	{
@@ -475,6 +563,36 @@ public:
 		double dx = A.GetPoint().X - B.GetPoint().X;
 		double dy = A.GetPoint().Y - B.GetPoint().Y;
 		return sqrt(dx * dx + dy * dy);
+	}
+	 
+	void Add_intermediate_points(int num_intermediate_points) 
+	{
+		vector<PointPressure>* new_point_list = new vector<PointPressure>();
+
+		for (int i = 0; i < m_points->size() - 1; i++) {
+			PointPressure pt1 = m_points->at(i);
+			PointPressure pt2 = m_points->at(i + 1);
+
+			new_point_list->push_back(pt1);
+
+			double d = Distance(pt1, pt2);
+			if (d < (double)num_intermediate_points) {
+				continue;
+			}
+
+			for (int j = 0; j < num_intermediate_points; j++) {
+				double t = (j + 1) / static_cast<double>(num_intermediate_points + 1);
+
+				double x = (1 - t) * pt1.GetPoint().X + t * pt2.GetPoint().X;
+				double y = (1 - t) * pt1.GetPoint().Y + t * pt1.GetPoint().Y;
+
+				new_point_list->push_back(PointPressure(PointType::Line, PointF(x, y), pt2.GetPressure()));
+			}
+		}
+
+		new_point_list->push_back(m_points->back());
+
+		m_points = new_point_list;
 	}
 
 	void MakeSimple()

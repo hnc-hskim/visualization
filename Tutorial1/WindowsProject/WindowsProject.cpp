@@ -117,7 +117,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	GraphicsPath path;
 
 	static float pen_pressure = 1.0F; 
-	static float default_pen_width = 20;
+	static float default_pen_width = 50;
 	static float MinLength = 0;
 
 	static vector<PointVector*> PathList = vector<PointVector*>();
@@ -158,7 +158,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 			//currentPoints->DrawSmoothLines(graphics, pen);  
 //			currentPoints->DrawSmoothPath(hdc, pen); 
-			currentPoints->DrawSmoothPathEx(hWnd);
+
+			//currentPoints->Add_intermediate_points(30); 
+
+			//currentPoints->DrawSmoothLine(graphics, pen);
+			currentPoints->DrawCustomLine(graphics, pen);
+			//currentPoints->DrawSmoothPathEx(hWnd);
 		} 
 
 		// 그리기 종료
